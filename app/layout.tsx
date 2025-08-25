@@ -2,7 +2,8 @@ import type React from "react"
 import type { Metadata } from "next"
 import { Inter, Montserrat } from "next/font/google"
 import "./globals.css"
-import { Navigation } from "@/components/navigation"
+import { AuthProvider } from "@/app/providers/AuthProvider"
+import LayoutContent from "@/components/LayoutContent"
 
 const inter = Inter({
   subsets: ["latin"],
@@ -23,11 +24,12 @@ export const metadata: Metadata = {
   generator: "v0.app",
 }
 
+
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode
-}>) {
+}) {
   return (
     <html lang="en" className="dark">
       <head>
@@ -40,8 +42,9 @@ html {
         `}</style>
       </head>
       <body className={`${inter.variable} ${montserrat.variable} antialiased`}>
-        <Navigation />
-        <main className="min-h-screen bg-background">{children}</main>
+        <AuthProvider>
+          <LayoutContent>{children}</LayoutContent>
+        </AuthProvider>
       </body>
     </html>
   )

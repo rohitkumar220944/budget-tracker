@@ -1,6 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/app/providers/AuthProvider"  // 🔑 our auth context
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -47,42 +49,10 @@ const topCategories = [
 ]
 
 const recentTransactions = [
-  {
-    id: 1,
-    type: "expense",
-    category: "Utilities",
-    amount: -21300,
-    date: "Thursday, July 24, 2025",
-    time: "05:30 AM",
-    icon: "⚡",
-  },
-  {
-    id: 2,
-    type: "income",
-    category: "Freelance",
-    amount: 25000,
-    date: "Monday, July 21, 2025",
-    time: "05:30 AM",
-    icon: "💼",
-  },
-  {
-    id: 3,
-    type: "expense",
-    category: "Shopping",
-    amount: -2500,
-    date: "Sunday, July 20, 2025",
-    time: "05:30 AM",
-    icon: "🛍️",
-  },
-  {
-    id: 4,
-    type: "expense",
-    category: "Investment",
-    amount: -22000,
-    date: "Friday, July 18, 2025",
-    time: "05:30 AM",
-    icon: "📈",
-  },
+  { id: 1, type: "expense", category: "Utilities", amount: -21300, date: "Thursday, July 24, 2025", time: "05:30 AM", icon: "⚡" },
+  { id: 2, type: "income", category: "Freelance", amount: 25000, date: "Monday, July 21, 2025", time: "05:30 AM", icon: "💼" },
+  { id: 3, type: "expense", category: "Shopping", amount: -2500, date: "Sunday, July 20, 2025", time: "05:30 AM", icon: "🛍️" },
+  { id: 4, type: "expense", category: "Investment", amount: -22000, date: "Friday, July 18, 2025", time: "05:30 AM", icon: "📈" },
 ]
 
 const categories = [
@@ -100,21 +70,28 @@ const categories = [
 ]
 
 export default function BudgetTracker() {
+  const { user } = useAuth()
+  const router = useRouter()
+
+  // 🔒 Redirect to /login if not logged in
+  useEffect(() => {
+    if (!user) {
+      router.push("/login")
+    }
+  }, [user, router])
+
+  if (!user) return null // Prevent dashboard flash before redirect
+
   const [currencyFrom, setCurrencyFrom] = useState("USD")
   const [currencyTo, setCurrencyTo] = useState("INR")
   const [convertAmount, setConvertAmount] = useState("10")
   const [convertedAmount, setConvertedAmount] = useState("835.00")
 
   const handleCurrencyConvert = async () => {
-    // TODO: API call to convert currency
-    // GET /api/currency/convert?from=${currencyFrom}&to=${currencyTo}&amount=${convertAmount}
     console.log("Converting currency:", { currencyFrom, currencyTo, convertAmount })
   }
 
   const handleSetBudget = async (budgetAmount: string) => {
-    // TODO: API call to set monthly budget
-    // PUT /api/budget
-    // Body: { amount: budgetAmount }
     console.log("Setting budget:", budgetAmount)
   }
 
@@ -126,7 +103,9 @@ export default function BudgetTracker() {
           <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
             <DollarSign className="w-5 h-5 text-primary-foreground" />
           </div>
-          <h1 className="text-3xl font-bold text-primary font-[family-name:var(--font-heading)]">Budget Tracker</h1>
+          <h1 className="text-3xl font-bold text-primary font-[family-name:var(--font-heading)]">
+            Budget Tracker
+          </h1>
         </div>
         <p className="text-muted-foreground">
           A personal finance app to track income, expenses, and budgets with visual analytics.

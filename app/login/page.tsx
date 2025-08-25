@@ -10,9 +10,11 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, Eye, EyeOff } from "lucide-react"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/app/providers/AuthProvider"
 
 export default function LoginPage() {
   const router = useRouter()
+  const { login } = useAuth()
   const [showPassword, setShowPassword] = useState(false)
   const [formData, setFormData] = useState({
     email: "",
@@ -35,12 +37,18 @@ export default function LoginPage() {
       })
       
       if (response.ok) {
-        const data = await response.json()
-        // Store auth token and redirect
-        localStorage.setItem('authToken', data.token)
-        router.push('/')
+        const data = await response.json();
+        // Handle backend response with nested data object
+        if (data.data && data.data.token) {
+          const username = data.data.name || formData.email;
+          login(data.data.token, username);
+        } else {
+          alert('Login failed. Invalid credentials.');
+          console.error('Login failed: No token in response', data);
+        }
       } else {
         // Handle login error
+        alert('Login failed. Please check your credentials.');
         console.error('Login failed')
       }
     } catch (error) {

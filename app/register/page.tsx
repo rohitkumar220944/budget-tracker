@@ -22,46 +22,44 @@ export default function RegisterPage() {
     confirmPassword: "",
   })
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+ const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault()
 
-    if (formData.password !== formData.confirmPassword) {
-      alert("Passwords don't match!")
+  if (formData.password !== formData.confirmPassword) {
+    alert("Passwords don't match!")
+    return
+  }
+
+  try {
+    const response = await fetch("http://localhost:8080/money/save", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+      }),
+    })
+
+    if (!response.ok) {
+      const errMsg = await response.text()
+      alert(`Registration failed: ${errMsg}`)
       return
     }
 
-    // TODO: Implement registration API call
-    // Example API call structure:
-    
-    try {
-      const response = await fetch('http://localhost:8080/money/save', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          email: formData.email,
-          password: formData.password
-        }),
-      })
-      
-      if (response.ok) {
-        const data = await response.json()
-        // Store auth token and redirect
-        localStorage.setItem('authToken', data.token)
-        router.push('/')
-      } else {
-        // Handle registration error
-        console.error('Registration failed')
-      }
-    } catch (error) {
-      console.error('Registration error:', error)
-    }
-    
+    const data = await response.json()
+    console.log("User registered:", data)
 
-    console.log("Registration form submitted:", formData)
+    alert("Registration successful! Please log in.")
+    router.push("/login")  // ✅ go to login page instead of storing token
+  } catch (error) {
+    console.error("Registration error:", error)
+    alert("Something went wrong. Please try again later.")
   }
+}
+
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">

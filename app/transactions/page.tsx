@@ -2,34 +2,61 @@
 
 import { useState } from "react"
 
+
+const categories = [
+  "Salary",
+  "Freelance",
+  "Investment",
+  "Food & Dining",
+  "Transportation",
+  "Entertainment",
+  "Shopping",
+  "Utilities",
+  "Health",
+  "Education",
+  "Other",
+];
+
 export default function AddTransaction() {
-  const [formData, setFormData] = useState({
+  // Always use string values for controlled inputs
+  const initialForm = {
     type: "Income",
     amount: "",
     entrydate: "",
     description: "",
-    title: "",
-  })
+    title: categories[0] || "Salary",
+  };
+  const [formData, setFormData] = useState(initialForm);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
+    // Format entrydate as yyyy-mm-dd (LocalDate)
     const payload = {
       ...formData,
       amount: parseFloat(formData.amount),
-    }
+      entrydate: formData.entrydate, // already yyyy-mm-dd from input
+    };
 
-    const res = await fetch("http://localhost:8080/home/savetrans", {
+    // Get JWT token from localStorage
+    const token = localStorage.getItem("token");
+
+    const res = await fetch("http://localhost:8080/auth/cust/savetrans", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
       body: JSON.stringify(payload),
-    })
+    });
 
     if (res.ok) {
-      alert("✅ Transaction added successfully")
-      setFormData({ type: "Income", amount: "", entrydate: "", description: "", title: "" })
+      alert("✅ Transaction added successfully");
+      setFormData(initialForm);
     } else {
-      alert("❌ Failed to add transaction")
+      const errorText = await res.text();
+      alert("❌ Failed to add transaction");
+      console.error("Transaction error:", errorText);
     }
   }
 
@@ -87,18 +114,20 @@ export default function AddTransaction() {
             />
           </div>
 
-          {/* Title */}
+          {/* Category */}
           <div>
-            <label className="block text-sm font-medium mb-2">Title</label>
-            <input
-              type="text"
+            <label className="block text-sm font-medium mb-2">Category</label>
+            <select
               name="title"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               className="w-full p-2 rounded-lg bg-gray-900 border border-gray-700 focus:outline-none focus:border-teal-500"
-              placeholder="e.g. Salary / Grocery"
               required
-            />
+            >
+              {categories.map((cat) => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
           </div>
 
           {/* Date */}
