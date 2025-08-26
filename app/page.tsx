@@ -1,4 +1,4 @@
-"use client"
+"use client" 
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Progress } from "@/components/ui/progress"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { XAxis, YAxis, LineChart, Line, ResponsiveContainer } from "recharts"
-import { DollarSign, Calendar, BarChart3, Plus, FileText } from "lucide-react"
+import { DollarSign, Calendar, BarChart3, Plus, FileText, Bolt, Briefcase, ShoppingBag, TrendingUp, Wallet, Utensils, HeartPulse, Package } from "lucide-react"
 import Link from "next/link"
 
 // Sample data - In real app, this would come from backend APIs
@@ -69,31 +69,226 @@ const categories = [
   "Other",
 ]
 
+
 export default function BudgetTracker() {
-  const { user } = useAuth()
-  const router = useRouter()
+  // Filter state
+  const [filterType, setFilterType] = useState<string>("all-types");
+  const [filterCategory, setFilterCategory] = useState<string>("all-categories");
+  const { user } = useAuth();
+  const router = useRouter();
 
   // 🔒 Redirect to /login if not logged in
   useEffect(() => {
     if (!user) {
-      router.push("/login")
+      router.push("/login");
     }
-  }, [user, router])
+  }, [user, router]);
 
-  if (!user) return null // Prevent dashboard flash before redirect
+  if (!user) return null; // Prevent dashboard flash before redirect
 
-  const [currencyFrom, setCurrencyFrom] = useState("USD")
-  const [currencyTo, setCurrencyTo] = useState("INR")
-  const [convertAmount, setConvertAmount] = useState("10")
-  const [convertedAmount, setConvertedAmount] = useState("835.00")
+  const [currencyFrom, setCurrencyFrom] = useState("USD");
+  const [currencyTo, setCurrencyTo] = useState("INR");
+  const [convertAmount, setConvertAmount] = useState("10");
+  const [convertedAmount, setConvertedAmount] = useState("835.00");
+  const [budgetInput, setBudgetInput] = useState("");
+  const [currentLimit, setCurrentLimit] = useState<number | null>(null);
+  const [limitId, setLimitId] = useState<number | null>(null);
+  const [limitLoading, setLimitLoading] = useState(true);
+  // Add state for income and expenses (replace with backend fetch in real app)
+  const [totalIncome, setTotalIncome] = useState<number>(0);
+  const [totalExpenses, setTotalExpenses] = useState<number>(0);
+  // State for recent transactions
+  const [recentTransactions, setRecentTransactions] = useState<any[]>([]);
+  const [transactionsLoading, setTransactionsLoading] = useState(true);
+
+  // Fetch recent transactions from backend
+  const fetchRecentTransactions = async () => {
+    setTransactionsLoading(true);
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch("http://localhost:8080/auth/cust/translist", {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // data.data is the array of transactions
+        if (data.status && Array.isArray(data.data)) {
+  console.log("[fetchRecentTransactions] Transaction objects:", data.data);
+
+  const formatted = data.data.map((tx: any) => {
+    const dateRaw = tx.entrydate || tx.created;
+
+    let formattedDate = "Invalid Date";
+    let formattedTime = "";
+
+    if (dateRaw) {
+      const d = new Date(dateRaw);
+      if (!isNaN(d.getTime())) {
+        formattedDate = d.toLocaleDateString("en-US", {
+          weekday: "long",
+          year: "numeric",
+          month: "long",
+          day: "numeric",
+        });
+        formattedTime = d.toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      }
+    }
+
+    return {
+      id: tx.transid,
+      title: tx.title,
+      type: tx.type?.toLowerCase() || "expense",
+      category: tx.description || "-",
+      amount: tx.amount ?? 0,
+      date: formattedDate,
+      time: formattedTime,
+    };
+  });
+
+  // sort by real date
+
+  const sorted = formatted.sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  setRecentTransactions(sorted); // Show all transactions, not just 5
+
+  // Calculate total income and expenses
+  let income = 0;
+  let expenses = 0;
+  for (const tx of data.data) {
+    const amt = Number(tx.amount) || 0;
+    if ((tx.type?.toLowerCase?.() || "expense") === "income") {
+      if (amt > 0) income += amt;
+    } else {
+      expenses += Math.abs(amt);
+    }
+  }
+  setTotalIncome(income);
+  setTotalExpenses(expenses);
+}
+
+        else {
+          setRecentTransactions([]);
+        }
+      } else {
+        setRecentTransactions([]);
+      }
+    } catch (err) {
+      setRecentTransactions([]);
+    }
+    setTransactionsLoading(false);
+  };
+
+  useEffect(() => {
+    fetchRecentTransactions();
+  }, []);
+
+  // Fetch current limit on mount and after reset
+  const fetchLimit = async () => {
+    setLimitLoading(true);
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch("http://localhost:8080/auth/cust/getlimit", {
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        console.log("[fetchLimit] Response from /getlimit:", data); // <-- Debug log
+        if (data.status && data.data) {
+          // Robust: support limit, limits, amount, or limiter property
+          let limitValue = data.data.limit ?? data.data.limits ?? data.data.amount ?? data.data.limiter ?? null;
+          if (typeof limitValue === "string") limitValue = parseFloat(limitValue);
+          if (typeof limitValue !== "number" || isNaN(limitValue)) limitValue = 0;
+          setCurrentLimit(limitValue);
+          setLimitId(data.data.id || data.data.limiterid || null);
+        } else {
+          setCurrentLimit(null);
+          setLimitId(null);
+        }
+      }
+    } catch (err) {
+      setCurrentLimit(null);
+      setLimitId(null);
+    }
+    setLimitLoading(false);
+  };
+  useEffect(() => {
+    fetchLimit();
+  }, []);
 
   const handleCurrencyConvert = async () => {
-    console.log("Converting currency:", { currencyFrom, currencyTo, convertAmount })
-  }
+    console.log("Converting currency:", { currencyFrom, currencyTo, convertAmount });
+  };
 
-  const handleSetBudget = async (budgetAmount: string) => {
-    console.log("Setting budget:", budgetAmount)
-  }
+  const handleSetBudget = async () => {
+    if (!budgetInput) {
+      alert("Please enter a budget amount.");
+      return;
+    }
+    const token = localStorage.getItem("token");
+    try {
+      let res;
+      if (limitId) {
+        // Update existing limit
+        res = await fetch(`http://localhost:8080/auth/cust/updlimit/${limitId}/${parseFloat(budgetInput)}`, {
+          method: "PUT",
+          headers: {
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+      } else {
+        // Save new limit
+        res = await fetch("http://localhost:8080/auth/cust/savelimit", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ title: "Monthly Budget", limits: parseFloat(budgetInput) }),
+        });
+      }
+      if (res.ok) {
+        alert("✅ Monthly budget set successfully");
+        setBudgetInput("");
+        fetchLimit();
+      } else {
+        const errorText = await res.text();
+        alert("❌ Failed to set budget");
+        console.error("Set budget error:", errorText);
+      }
+    } catch (err) {
+      alert("❌ Failed to set budget");
+      console.error("Set budget error:", err);
+    }
+  };
+
+  const handleResetLimit = async () => {
+    if (!limitId) return;
+    const token = localStorage.getItem("token");
+    try {
+      const res = await fetch(`http://localhost:8080/auth/cust/dellimit/${limitId}`, {
+        method: "DELETE",
+        headers: {
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (res.ok) {
+        alert("✅ Limit reset/deleted");
+        setCurrentLimit(null);
+        setLimitId(null);
+        fetchLimit();
+      } else {
+        alert("❌ Failed to reset limit");
+      }
+    } catch (err) {
+      alert("❌ Failed to reset limit");
+    }
+  };
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -142,7 +337,7 @@ export default function BudgetTracker() {
                   <div className="w-3 h-3 bg-chart-1 rounded-full"></div>
                   <span>Total Income:</span>
                 </div>
-                <span className="text-chart-1 font-semibold">₹63,044.02</span>
+                <span className="text-chart-1 font-semibold">₹{totalIncome.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
               </div>
 
               <div className="flex items-center justify-between">
@@ -150,22 +345,32 @@ export default function BudgetTracker() {
                   <div className="w-3 h-3 bg-chart-2 rounded-full"></div>
                   <span>Total Expenses:</span>
                 </div>
-                <span className="text-chart-2 font-semibold">₹45,200.00</span>
+                <span className="text-chart-2 font-semibold">₹{totalExpenses.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
               </div>
 
               <div className="pt-2 border-t">
                 <div className="flex items-center justify-between mb-2">
                   <span>Current Balance:</span>
-                  <span className="text-primary font-bold text-lg">₹17,844.02</span>
+                  <span className="text-primary font-bold text-lg">₹{(totalIncome - totalExpenses).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                 </div>
               </div>
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span>Monthly Budget</span>
-                  <span>₹45,200 / ₹50,000.00</span>
+                  <span>
+                    {limitLoading ? <span>Loading...</span> : <>₹{typeof currentLimit === "number" && !isNaN(currentLimit) ? currentLimit.toLocaleString() : "0"}.00</>}
+                  </span>
                 </div>
-                <Progress value={90} className="h-2" />
+                {/* Optionally, update Progress value to reflect budget usage */}
+                <Progress 
+                  value={
+                    typeof currentLimit === "number" && currentLimit > 0 && typeof totalExpenses === "number" && totalExpenses > 0
+                      ? Math.min((totalExpenses / currentLimit) * 100, 100)
+                      : 0
+                  }
+                  className="h-2"
+                />
                 <div className="flex justify-between text-xs text-muted-foreground">
                   <span>0%</span>
                   <span>100%</span>
@@ -175,8 +380,16 @@ export default function BudgetTracker() {
               <div className="space-y-2">
                 <label className="text-sm font-medium">Set Monthly Budget (₹)</label>
                 <div className="flex gap-2">
-                  <Input placeholder="50000" className="flex-1" />
-                  <Button onClick={() => handleSetBudget("50000")}>Set</Button>
+                  <Input
+                    placeholder="50000"
+                    className="flex-1"
+                    value={budgetInput}
+                    onChange={e => setBudgetInput(e.target.value.replace(/[^0-9.]/g, ""))}
+                  />
+                  <Button onClick={handleSetBudget}>Set</Button>
+                  {limitId && (
+                    <Button variant="destructive" onClick={handleResetLimit}>Reset Limit</Button>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -237,72 +450,156 @@ export default function BudgetTracker() {
 
         {/* Right Column - Recent Transactions */}
         <div className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Calendar className="w-5 h-5" />
-                  Recent Transactions
-                </div>
-                <div className="flex gap-2">
-                  <Select defaultValue="all-types">
-                    <SelectTrigger className="w-32">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all-types">All Types</SelectItem>
-                      <SelectItem value="income">Income</SelectItem>
-                      <SelectItem value="expense">Expense</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select defaultValue="all-categories">
-                    <SelectTrigger className="w-36">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all-categories">All Categories</SelectItem>
-                      {categories.map((cat) => (
-                        <SelectItem key={cat} value={cat.toLowerCase()}>
-                          {cat}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {recentTransactions.map((transaction) => (
-                  <div key={transaction.id} className="border-b border-border pb-4 last:border-b-0">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-3">
-                        <span className="text-lg">{transaction.icon}</span>
-                        <div>
-                          <div className="font-medium">{transaction.category}</div>
-                          <div className="text-xs text-muted-foreground">{transaction.date}</div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div
-                          className={`font-semibold ${transaction.type === "income" ? "text-chart-1" : "text-chart-2"}`}
-                        >
-                          {transaction.type === "income" ? "+" : ""}₹{Math.abs(transaction.amount).toLocaleString()}
-                        </div>
-                        <div className="text-xs text-muted-foreground">{transaction.time}</div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
+<Card>
+  <CardHeader>
+    <CardTitle className="flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <Calendar className="w-5 h-5" />
+        Recent Transactions
+      </div>
+      <div className="flex gap-2">
+        <Select value={filterType} onValueChange={setFilterType}>
+          <SelectTrigger className="w-32">
+            <SelectValue placeholder="All Types" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all-types">All Types</SelectItem>
+            <SelectItem value="income">Income</SelectItem>
+            <SelectItem value="expense">Expense</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={filterCategory} onValueChange={setFilterCategory}>
+          <SelectTrigger className="w-36">
+            <SelectValue placeholder="All Categories" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all-categories">All Categories</SelectItem>
+            {/* Use normalized keys for SelectItem values */}
+            {["Utilities","Freelance","Shopping","Investment","Salary","Food","Health","Other"].map((cat) => (
+              <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </CardTitle>
+  </CardHeader>
+  <CardContent>
 
-                <Link href="/statistics">
-                  <Button variant="ghost" className="w-full text-primary">
-                    Show Monthly Statistics
-                  </Button>
-                </Link>
-              </div>
-            </CardContent>
-          </Card>
+    {transactionsLoading ? (
+      <div>Loading...</div>
+    ) : recentTransactions.length === 0 ? (
+      <div className="text-muted-foreground">No recent transactions found.</div>
+    ) : (
+      Object.entries(
+        recentTransactions
+          .filter((tx: any) => {
+            const type = (tx.transtype || tx.type || "expense").toLowerCase();
+            let category = tx.catname || tx.category || "Other";
+            category = category.trim();
+            const categoryKeyMap: Record<string, string> = {
+              utilities: "Utilities",
+              freelance: "Freelance",
+              shopping: "Shopping",
+              investment: "Investment",
+              salary: "Salary",
+              food: "Food",
+              health: "Health",
+              other: "Other",
+            };
+            const normalizedCategory = categoryKeyMap[category.toLowerCase()] || "Other";
+            const typeMatch = filterType === "all-types" || type === filterType;
+            // Compare to filterCategory directly (not lowercased)
+            const catMatch = filterCategory === "all-categories" || normalizedCategory === filterCategory;
+            return typeMatch && catMatch;
+          })
+          .reduce((acc: any, tx: any) => {
+            const date = tx.transdate || tx.date;
+            const formattedDate = new Date(date).toLocaleDateString("en-US", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            });
+            if (!acc[formattedDate]) acc[formattedDate] = [];
+            acc[formattedDate].push(tx);
+            return acc;
+          }, {})
+      ).map(([date, txs]: any) => (
+        <div key={date} className="mb-5">
+          {/* Date header */}
+          <h3 className="text-sm font-semibold text-muted-foreground mb-3">{date}</h3>
+          <div className="space-y-4">
+            {txs.map((transaction: any) => {
+              const type = transaction.transtype || transaction.type || "expense";
+              const category = transaction.catname || transaction.category || "Other";
+              const amount = transaction.amt ?? transaction.amount ?? 0;
+              const time =
+                transaction.time ||
+                new Date(transaction.transdate || transaction.date).toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                });
+
+              // Icon map using emoji
+              const icons: Record<string, string> = {
+                Utilities: "⚡",
+                Freelance: "💼",
+                Shopping: "🛍️",
+                Investment: "📈",
+                Salary: "💰",
+                Food: "🍔",
+                Health: "❤️",
+                Other: "📦",
+              };
+
+              return (
+                <div
+                  key={transaction.transid || transaction.id}
+                  className="flex items-center justify-between border-b border-border pb-2"
+                >
+                  {/* Left */}
+
+                  <div className="flex flex-col gap-0.5">
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg">{icons[category] || icons["Other"]}</span>
+                      {transaction.title && (
+                        <span className="font-semibold">{transaction.title}</span>
+                      )}
+                    </div>
+                    <div className="text-xs text-muted-foreground ml-7">{category}</div>
+                  </div>
+
+                  {/* Right */}
+                  <div className="text-right">
+                    <div
+                      className={`font-semibold flex items-center gap-2 ${
+                        type === "income" ? "text-green-500" : "text-red-500"
+                      }`}
+                    >
+                      <span>{type === "income" ? "+" : "-"}{Math.abs(amount).toLocaleString()}</span>
+                      <span className="text-xs bg-muted px-2 py-0.5 rounded">
+                        {type === "income" ? "Income" : "Expense"}
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">{time}</div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))
+    )}
+
+    <Link href="/statistics">
+      <Button variant="ghost" className="w-full text-primary mt-4">
+        Show Monthly Statistics
+      </Button>
+    </Link>
+  </CardContent>
+</Card>
+
+
         </div>
       </div>
 
