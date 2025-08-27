@@ -1,4 +1,12 @@
+
+
 "use client"
+
+import { useAuth } from "@/app/providers/AuthProvider"
+import { useRouter } from "next/navigation"
+import { useEffect } from "react"
+
+
 
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -12,7 +20,7 @@ const reportTypes = [
   { value: "expense", label: "Expense Report", description: "Detailed expense breakdown by category" },
   { value: "combined", label: "Combined Report", description: "Complete income and expense summary" },
   { value: "category", label: "Category Report", description: "Category-wise financial analysis" },
-]
+];
 
 const monthOptions = [
   { value: "1", label: "Last 1 Month" },
@@ -21,27 +29,34 @@ const monthOptions = [
   { value: "4", label: "Last 4 Months" },
   { value: "5", label: "Last 5 Months" },
   { value: "6", label: "Last 6 Months" },
-]
+];
 
 const formatOptions = [
   { value: "pdf", label: "PDF", icon: "📄" },
   { value: "excel", label: "Excel", icon: "📊" },
   { value: "csv", label: "CSV", icon: "📋" },
-]
+];
 
 export default function Reports() {
-  const [selectedReportType, setSelectedReportType] = useState("")
-  const [selectedMonths, setSelectedMonths] = useState("")
-  const [selectedFormat, setSelectedFormat] = useState("")
-  const [isGenerating, setIsGenerating] = useState(false)
+  const { user } = useAuth();
+  const router = useRouter();
+  const [selectedReportType, setSelectedReportType] = useState("");
+  const [selectedMonths, setSelectedMonths] = useState("");
+  const [selectedFormat, setSelectedFormat] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  useEffect(() => {
+    if (!user) router.push("/login");
+  }, [user, router]);
+  if (!user) return null;
 
   const handleGenerateReport = async () => {
     if (!selectedReportType || !selectedMonths || !selectedFormat) {
-      alert("Please select all required fields")
-      return
+      alert("Please select all required fields");
+      return;
     }
 
-    setIsGenerating(true)
+    setIsGenerating(true);
 
     try {
       // TODO: API call to generate and download report
@@ -57,20 +72,20 @@ export default function Reports() {
         type: selectedReportType,
         months: selectedMonths,
         format: selectedFormat,
-      })
+      });
 
       // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 2000))
+      await new Promise((resolve) => setTimeout(resolve, 2000));
 
       // In real implementation, this would trigger file download
-      alert(`Report generated successfully! (${selectedReportType} - ${selectedMonths} months - ${selectedFormat})`)
+      alert(`Report generated successfully! (${selectedReportType} - ${selectedMonths} months - ${selectedFormat})`);
     } catch (error) {
-      console.error("Error generating report:", error)
-      alert("Failed to generate report. Please try again.")
+      console.error("Error generating report:", error);
+      alert("Failed to generate report. Please try again.");
     } finally {
-      setIsGenerating(false)
+      setIsGenerating(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-background p-6">
@@ -261,5 +276,5 @@ export default function Reports() {
         </Card>
       </div>
     </div>
-  )
+  );
 }

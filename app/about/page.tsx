@@ -1,9 +1,19 @@
+"use client"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, Shield, TrendingUp, PieChart, FileText } from "lucide-react"
+import { useAuth } from "@/app/providers/AuthProvider"
+import { useRouter } from "next/navigation"
+import { useEffect } from "react"
 
 export default function AboutPage() {
+  const { user } = useAuth();
+  const router = useRouter();
+  useEffect(() => {
+    if (!user) router.push("/login");
+  }, [user, router]);
+  if (!user) return null;
   const features = [
     {
       icon: TrendingUp,

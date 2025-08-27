@@ -1,5 +1,12 @@
 "use client"
 
+
+import { useAuth } from "@/app/providers/AuthProvider"
+import { useRouter } from "next/navigation"
+import { useEffect } from "react"
+
+
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
@@ -41,10 +48,15 @@ const topCategories = [
   { name: "Education", income: 0, expenses: 7000, color: "#ec4899" },
   { name: "Food", income: 0, expenses: 5500, color: "#10b981" },
 ]
-
 export default function MonthlyStatistics() {
-  // TODO: API call to fetch monthly statistics data
-  // GET /api/statistics/monthly?month=current
+  const { user } = useAuth();
+  const router = useRouter();
+  useEffect(() => {
+    if (!user) router.push("/login");
+  }, [user, router]);
+  if (!user) return null;
+
+
 
   return (
     <div className="min-h-screen bg-background p-6">

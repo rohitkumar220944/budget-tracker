@@ -30,23 +30,78 @@ const incomeVsExpenseData = [
   { name: "Expenses", value: 45200, color: "#ef4444" },
 ]
 
-const spendingTrendData = [
-  { week: "Week 1", income: 50000, expenses: 35000 },
-  { week: "Week 2", income: 52000, expenses: 38000 },
-  { week: "Week 3", income: 48000, expenses: 42000 },
-  { week: "Week 4", income: 55000, expenses: 40000 },
-  { week: "Week 5", income: 53000, expenses: 37000 },
-]
 
-const topCategories = [
-  { name: "Salary", income: 50000, expenses: 0 },
-  { name: "Shopping", income: 0, expenses: 12500 },
-  { name: "Investment", income: 0, expenses: 12000 },
-  { name: "Other", income: 0, expenses: 10000 },
-  { name: "Freelance", income: 7344, expenses: 0 },
-  { name: "Education", income: 0, expenses: 7000 },
-  { name: "Food", income: 0, expenses: 5500 },
-]
+// Compute spending trend from recentTransactions
+function getSpendingTrendData(transactions: Transaction[]) {
+  // Group transactions by week (show as 'Week N')
+  const weekMap: Record<string, { week: string; weekDate: Date; income: number; expenses: number }> = {};
+  for (const tx of transactions) {
+    const dateRaw = tx.entrydate || tx.created || tx.transdate || tx.date;
+    const d = dateRaw ? new Date(dateRaw) : null;
+    if (!d || isNaN(d.getTime())) continue;
+    // Get ISO week number
+    const temp = new Date(d.getTime());
+    temp.setHours(0,0,0,0);
+    // Thursday in current week decides the year.
+    temp.setDate(temp.getDate() + 3 - ((temp.getDay() + 6) % 7));
+    const week1 = new Date(temp.getFullYear(),0,4);
+    const weekNum = 1 + Math.round(((temp.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
+    const year = temp.getFullYear();
+    const weekKey = `${year}-W${weekNum}`;
+    const weekLabel = `Week ${weekNum}`;
+    if (!weekMap[weekKey]) {
+      weekMap[weekKey] = { week: weekLabel, weekDate: new Date(temp), income: 0, expenses: 0 };
+    }
+    const type = (tx.transtype || tx.type || "expense").toLowerCase();
+    const amt = Number(tx.amt ?? tx.amount ?? 0);
+    if (type === "income") {
+      weekMap[weekKey].income += Math.abs(amt);
+    } else {
+      weekMap[weekKey].expenses += Math.abs(amt);
+    }
+  }
+  // Sort by weekDate (date ascending)
+  return Object.values(weekMap).sort((a, b) => a.weekDate.getTime() - b.weekDate.getTime());
+}
+
+
+// Compute top categories from recentTransactions
+type Transaction = {
+  transtype?: string;
+  type?: string;
+  catname?: string;
+  category?: string;
+  amt?: number;
+  amount?: number;
+  title?: string;
+  entrydate?: string;
+  created?: string;
+  transdate?: string;
+  date?: string;
+};
+type TopCategory = { name: string; income: number; expenses: number };
+function getTopCategories(transactions: Transaction[]): TopCategory[] {
+  const categoryMap: Record<string, TopCategory> = {};
+  for (const tx of transactions) {
+    const type = (tx.transtype || tx.type || "expense").toLowerCase();
+    // Use tx.title as the display name if available, else fallback to catname/category/Other
+    let displayName = tx.title || tx.catname || tx.category || "Other";
+    displayName = String(displayName).trim();
+    if (!categoryMap[displayName]) {
+      categoryMap[displayName] = { name: displayName, income: 0, expenses: 0 };
+    }
+    const amt = Number(tx.amt ?? tx.amount ?? 0);
+    if (type === "income") {
+      categoryMap[displayName].income += Math.abs(amt);
+    } else {
+      categoryMap[displayName].expenses += Math.abs(amt);
+    }
+  }
+  // Convert to array, sort by max(income, expenses) desc, take top 7
+  return Object.values(categoryMap)
+    .sort((a, b) => Math.max(b.income, b.expenses) - Math.max(a.income, a.expenses))
+    .slice(0, 7);
+}
 
 const recentTransactions = [
   { id: 1, type: "expense", category: "Utilities", amount: -21300, date: "Thursday, July 24, 2025", time: "05:30 AM", icon: "⚡" },
@@ -139,6 +194,13 @@ export default function BudgetTracker() {
       }
     }
 
+    // Always provide a readable time string
+    let time = tx.time || formattedTime;
+    if (!time || time === "Invalid Date") {
+      // fallback: show --:-- if not available
+      time = "--:--";
+    }
+
     return {
       id: tx.transid,
       title: tx.title,
@@ -146,7 +208,7 @@ export default function BudgetTracker() {
       category: tx.description || "-",
       amount: tx.amount ?? 0,
       date: formattedDate,
-      time: formattedTime,
+      time,
     };
   });
 
@@ -581,7 +643,7 @@ export default function BudgetTracker() {
                         {type === "income" ? "Income" : "Expense"}
                       </span>
                     </div>
-                    <div className="text-xs text-muted-foreground">{time}</div>
+                    {/* Time removed as requested */}
                   </div>
                 </div>
               );
@@ -605,6 +667,7 @@ export default function BudgetTracker() {
 
       {/* Bottom Section - Charts and Statistics */}
       <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
+
         {/* Top Categories */}
         <Card>
           <CardHeader>
@@ -612,9 +675,10 @@ export default function BudgetTracker() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {topCategories.map((category, index) => (
+              {getTopCategories(recentTransactions as Transaction[]).map((category: TopCategory, index: number) => (
                 <div key={index} className="space-y-2">
                   <div className="flex items-center justify-between">
+                    {/* Show only the category name and summary, never transaction notes/titles */}
                     <span className="font-medium">{category.name}</span>
                     <span className="font-semibold">₹{(category.income || category.expenses).toLocaleString()}.00</span>
                   </div>
@@ -663,23 +727,25 @@ export default function BudgetTracker() {
               className="h-[300px]"
             >
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={spendingTrendData}>
-                  <XAxis dataKey="week" />
-                  <YAxis />
+                <LineChart data={getSpendingTrendData(recentTransactions as Transaction[])}>
+                  <XAxis dataKey="week" tick={{ fill: '#6366f1', fontWeight: 600 }} axisLine={{ stroke: '#6366f1' }} />
+                  <YAxis tick={{ fill: '#10b981', fontWeight: 600 }} axisLine={{ stroke: '#10b981' }} />
                   <ChartTooltip content={<ChartTooltipContent />} />
                   <Line
                     type="monotone"
                     dataKey="income"
-                    stroke="hsl(var(--chart-1))"
+                    stroke="#10b981"
                     strokeWidth={3}
-                    dot={{ fill: "hsl(var(--chart-1))", strokeWidth: 2, r: 4 }}
+                    dot={{ fill: "#10b981", strokeWidth: 2, r: 5 }}
+                    activeDot={{ r: 8, fill: '#10b981', stroke: '#fff', strokeWidth: 2 }}
                   />
                   <Line
                     type="monotone"
                     dataKey="expenses"
-                    stroke="hsl(var(--chart-2))"
+                    stroke="#ef4444"
                     strokeWidth={3}
-                    dot={{ fill: "hsl(var(--chart-2))", strokeWidth: 2, r: 4 }}
+                    dot={{ fill: "#ef4444", strokeWidth: 2, r: 5 }}
+                    activeDot={{ r: 8, fill: '#ef4444', stroke: '#fff', strokeWidth: 2 }}
                   />
                 </LineChart>
               </ResponsiveContainer>

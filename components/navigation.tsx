@@ -1,17 +1,19 @@
 "use client"
 
+
 import Link from "next/link"
-import { usePathname, useRouter } from "next/navigation"   // ⬅️ add useRouter
+import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Home, Plus, BarChart3, FileText, User, LogIn, LogOut, Info } from "lucide-react"
+import { useAuth } from "@/app/providers/AuthProvider"
+
 
 export function Navigation() {
-  const pathname = usePathname()
-  const router = useRouter()   // ⬅️ initialize router
-
-  // TODO: Replace with actual authentication state from your backend
-  const isAuthenticated = true // This should come from your auth context/state
-  const userName = "John Doe" // This should come from your user data
+  const pathname = usePathname();
+  const router = useRouter();
+  const { user, logout } = useAuth();
+  const isAuthenticated = !!user;
+  const userName = user || "";
 
   const navItems = [
     { href: "/", label: "Home", icon: Home },
@@ -21,20 +23,10 @@ export function Navigation() {
     { href: "/about", label: "About", icon: Info },
   ]
 
-  // ✅ Logout handler
+  // Logout handler from context
   const handleLogout = () => {
-    console.log("Logout clicked")
-
-    // 🔹 Remove stored token/user info
-    localStorage.removeItem("authToken")
-    localStorage.removeItem("user")
-
-    // (Optional) if you call backend logout endpoint:
-    // await fetch("http://localhost:8080/money/logout", { method: "POST", credentials: "include" });
-
-    // 🔹 Redirect to login page
-    router.push("/login")
-  }
+    logout();
+  };
 
   return (
     <nav className="bg-card border-b border-border">

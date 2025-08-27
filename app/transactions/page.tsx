@@ -1,7 +1,8 @@
 "use client"
 
-import { useState } from "react"
-
+import { useAuth } from "@/app/providers/AuthProvider"
+import { useRouter } from "next/navigation"
+import { useEffect, useState } from "react"
 
 const categories = [
   "Salary",
@@ -18,6 +19,12 @@ const categories = [
 ];
 
 export default function AddTransaction() {
+  const { user } = useAuth();
+  const router = useRouter();
+  useEffect(() => {
+    if (!user) router.push("/login");
+  }, [user, router]);
+  if (!user) return null;
   // Always use string values for controlled inputs
   const initialForm = {
     type: "Income",
