@@ -361,7 +361,7 @@ export default function BudgetTracker() {
             <DollarSign className="w-5 h-5 text-primary-foreground" />
           </div>
           <h1 className="text-3xl font-bold text-primary font-[family-name:var(--font-heading)]">
-            Budget Tracker
+            Money Trex
           </h1>
         </div>
         <p className="text-muted-foreground">
@@ -755,7 +755,7 @@ export default function BudgetTracker() {
       </div>
 
       {/* Footer */}
-      <div className="mt-8 text-center text-sm text-muted-foreground">Created by Vishesh Jain</div>
+      <div className="mt-8 text-center text-sm text-muted-foreground">Created by Rohit Kumar</div>
     </div>
   )
 }
