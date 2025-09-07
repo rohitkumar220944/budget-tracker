@@ -37,7 +37,7 @@ export function Navigation() {
             <div className="w-8 h-8 bg-primary rounded-full flex items-center justify-center">
               <span className="text-primary-foreground font-bold text-sm">₹</span>
             </div>
-            <span className="font-heading font-bold text-xl text-foreground">Budget Tracker</span>
+            <span className="font-heading font-bold text-xl text-foreground">Money Trex</span>
           </Link>
 
           {/* Navigation Links */}
