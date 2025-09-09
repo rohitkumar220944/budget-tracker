@@ -23,7 +23,7 @@ const reportTypes = [
 ];
 
 const monthOptions = [
-  { value: "1", label: "Last 1 Month" },
+  { value: "1", label: "Current Month" },
   { value: "2", label: "Last 2 Months" },
   { value: "3", label: "Last 3 Months" },
   { value: "4", label: "Last 4 Months" },
@@ -59,26 +59,56 @@ export default function Reports() {
     setIsGenerating(true);
 
     try {
-      // TODO: API call to generate and download report
-      // POST /api/reports/generate
-      // Body: {
-      //   type: selectedReportType,
-      //   months: selectedMonths,
-      //   format: selectedFormat
-      // }
-      // Response: { downloadUrl: string } or direct file download
+      // Calculate the start month and year for the report based on selectedMonths
+      const now = new Date();
+      const monthsBack = parseInt(selectedMonths, 10);
+      let month = now.getMonth() + 1; // JS months are 0-based
+      let year = now.getFullYear();
 
-      console.log("Generating report:", {
-        type: selectedReportType,
-        months: selectedMonths,
-        format: selectedFormat,
+
+      // Calculate the start and end month/year for the range
+      let endMonth = now.getMonth() + 1;
+      let endYear = now.getFullYear();
+      let startMonth = endMonth - (monthsBack - 1);
+      let startYear = endYear;
+      while (startMonth <= 0) {
+        startMonth += 12;
+        startYear -= 1;
+      }
+
+      // Only PDF is supported by backend for now
+      if (selectedFormat !== "pdf") {
+        alert("Only PDF export is supported at this time.");
+        setIsGenerating(false);
+        return;
+      }
+
+      const res = await fetch("http://localhost:8080/auth/cust/report/pdf", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          startMonth: startMonth,
+          startYear: startYear,
+          endMonth: endMonth,
+          endYear: endYear,
+          type: selectedReportType === "combined" ? null : selectedReportType,
+        }),
+        credentials: "include", // Send cookies for authentication
       });
 
-      // Simulate API call delay
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // In real implementation, this would trigger file download
-      alert(`Report generated successfully! (${selectedReportType} - ${selectedMonths} months - ${selectedFormat})`);
+      if (!res.ok) throw new Error("Failed to generate report");
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      // Download the PDF
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `report_${selectedReportType}_${selectedMonths}months.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
     } catch (error) {
       console.error("Error generating report:", error);
       alert("Failed to generate report. Please try again.");
@@ -149,6 +179,23 @@ export default function Reports() {
                     ))}
                   </SelectContent>
                 </Select>
+                {selectedMonths && (
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {(() => {
+                      const now = new Date();
+                      const monthsBack = parseInt(selectedMonths, 10);
+                      let endMonth = now.getMonth() + 1;
+                      let endYear = now.getFullYear();
+                      let startMonth = endMonth - (monthsBack - 1);
+                      let startYear = endYear;
+                      while (startMonth <= 0) {
+                        startMonth += 12;
+                        startYear -= 1;
+                      }
+                      return `Report will include transactions from ${startMonth}/${startYear} to ${endMonth}/${endYear}`;
+                    })()}
+                  </div>
+                )}
               </div>
 
               {/* Format Selection */}
